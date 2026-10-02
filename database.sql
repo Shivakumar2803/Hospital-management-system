@@ -1,7 +1,3 @@
-### 4. `database.sql` (New File)
-This script replaces the dynamic arrays with strict relational tables to ensure data integrity. Run this in your PostgreSQL database.
-
-```sql
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TABLE users (
