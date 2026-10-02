@@ -10,7 +10,7 @@
 
 <header class="bg-blue-900 text-white shadow-md sticky top-0 z-50">
   <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-    <h1 class="text-2xl font-bold flex items-center gap-2">🏥 CareConnect</h1>
+    <h1 class="text-2xl font-bold flex items-center gap-2 cursor-pointer" onclick="showPortal=false; render()">🏥 CareConnect</h1>
     <div id="nav" class="flex items-center gap-4"></div>
   </div>
 </header>
@@ -26,6 +26,7 @@
   let token = localStorage.token || '';
   let user = JSON.parse(localStorage.user || 'null');
   let sel = {}, openPatient = null;
+  let showPortal = false; // Controls whether to show the login screen or public website
 
   const e = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   
@@ -47,7 +48,7 @@
     return d;
   }
 
-  function logout() { localStorage.clear(); token = ''; user = null; render(); }
+  function logout() { localStorage.clear(); token = ''; user = null; showPortal = false; render(); }
 
   async function auth(kind) {
     try {
@@ -59,28 +60,64 @@
   }
 
   function render() {
+    // Navigation Bar Logic
     $('#nav').innerHTML = user 
       ? `<span class="flex items-center gap-2 text-sm"><span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> Live</span>
          <span class="font-medium">${e(user.name)} <span class="opacity-75 text-sm">(${user.role})</span></span>
          <button onclick="logout()" class="ml-4 bg-white/10 hover:bg-white/20 px-4 py-2 rounded transition">Logout</button>`
-      : '';
+      : `<button onclick="showPortal=true; render()" class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded transition font-medium">Patient Login</button>`;
 
     if (!user) {
-      app.innerHTML = `
-        <div class="max-w-md mx-auto bg-white p-8 rounded-xl shadow-sm border border-slate-200 mt-10">
-          <h2 class="text-2xl font-bold text-slate-800 mb-6 text-center">Portal Access</h2>
-          <div class="space-y-4">
-            <input id="n" placeholder="Full name (new patients)" class="w-full p-3 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none">
-            <input id="em" type="email" placeholder="Email Address" class="w-full p-3 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none">
-            <input id="pw" type="password" placeholder="Password" class="w-full p-3 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none">
-            <div class="flex gap-4 pt-2">
-              <button onclick="auth('login')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded transition">Login</button>
-              <button onclick="auth('register')" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3 rounded transition border border-slate-300">Register</button>
-            </div>
+      if (!showPortal) {
+        // --- PUBLIC LANDING PAGE ---
+        app.innerHTML = `
+          <div class="text-center py-20 bg-blue-100 rounded-2xl mb-12 shadow-sm border border-blue-200">
+            <h1 class="text-4xl md:text-5xl font-bold text-slate-800 mb-6">World-Class Healthcare, Closer to You</h1>
+            <p class="text-lg text-slate-600 mb-10 max-w-2xl mx-auto">Experience seamless scheduling, digital health records, and top-tier medical experts all in one secure platform.</p>
+            <button onclick="showPortal=true; render()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-10 rounded-full shadow-lg transition transform hover:scale-105 text-lg">
+              Book an Appointment
+            </button>
           </div>
-        </div>`;
+          
+          <h2 class="text-2xl font-bold text-center text-slate-800 mb-8">Our Centres of Excellence</h2>
+          <div class="grid md:grid-cols-3 gap-8 mb-12">
+             <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center hover:shadow-md transition cursor-pointer">
+               <div class="text-4xl mb-4">🫀</div>
+               <h3 class="font-bold text-lg mb-2">Cardiac Sciences</h3>
+               <p class="text-slate-500 text-sm">Advanced heart care, diagnostics, and treatments by expert cardiologists.</p>
+             </div>
+             <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center hover:shadow-md transition cursor-pointer">
+               <div class="text-4xl mb-4">🧠</div>
+               <h3 class="font-bold text-lg mb-2">Neurosciences</h3>
+               <p class="text-slate-500 text-sm">Comprehensive care for brain, spine, and nervous system disorders.</p>
+             </div>
+             <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center hover:shadow-md transition cursor-pointer">
+               <div class="text-4xl mb-4">🩺</div>
+               <h3 class="font-bold text-lg mb-2">General Medicine</h3>
+               <p class="text-slate-500 text-sm">Primary care, routine checkups, and advanced preventive medicine.</p>
+             </div>
+          </div>
+        `;
+      } else {
+        // --- LOGIN & REGISTRATION PORTAL ---
+        app.innerHTML = `
+          <div class="max-w-md mx-auto bg-white p-8 rounded-xl shadow-sm border border-slate-200 mt-10 relative">
+            <button onclick="showPortal=false; render()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-sm font-medium">✕ Cancel</button>
+            <h2 class="text-2xl font-bold text-slate-800 mb-6 text-center">Portal Access</h2>
+            <div class="space-y-4">
+              <input id="n" placeholder="Full name (new patients)" class="w-full p-3 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+              <input id="em" type="email" placeholder="Email Address" class="w-full p-3 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+              <input id="pw" type="password" placeholder="Password" class="w-full p-3 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+              <div class="flex gap-4 pt-2">
+                <button onclick="auth('login')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded transition">Login</button>
+                <button onclick="auth('register')" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3 rounded transition border border-slate-300">Register</button>
+              </div>
+            </div>
+          </div>`;
+      }
       return;
     }
+    // Render Dashboards if logged in
     user.role === 'patient' ? patientView() : staffView();
   }
 
