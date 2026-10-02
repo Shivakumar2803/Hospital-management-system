@@ -1,0 +1,10 @@
+{
+  "name": "hospital-management-system",
+  "version": "1.0.0",
+  "description": "Real-time hospital management system: online appointment booking and digital patient records.",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "express": "^4.19.2", "socket.io": "^4.7.5" },
+  "license": "MIT"
+}
