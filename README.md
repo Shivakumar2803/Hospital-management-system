@@ -15,9 +15,6 @@ npm start
 ```
 Open http://localhost:3000
 
-Demo logins: `admin@hospital.com / Admin@123`, `anita@hospital.com / Doctor@123`.
-Change these and set a `SECRET` environment variable before real use.
-
 ## Structure
 - `server.js` - Express API, Socket.IO, JSON file storage (`data.json`)
 - `public/index.html` - the full front end
