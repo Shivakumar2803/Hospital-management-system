@@ -1,79 +1,236 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CareConnect Hospital</title>
-<style>
-:root{--p:#0f766e;--bg:#f1f5f9;--c:#fff;--t:#0f172a;--m:#64748b;--b:#e2e8f0}
-*{box-sizing:border-box}body{margin:0;font-family:system-ui,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--t)}
-header{background:var(--p);color:#fff;padding:14px 24px;display:flex;justify-content:space-between;align-items:center}
-header h1{font-size:20px;margin:0}main{max-width:1000px;margin:24px auto;padding:0 16px}
-.card{background:var(--c);border:1px solid var(--b);border-radius:12px;padding:20px;margin-bottom:16px}
-h2{margin:0 0 12px;font-size:17px}input,select,textarea,button{font:inherit;padding:9px 12px;border:1px solid var(--b);border-radius:8px;width:100%;margin-bottom:10px}
-button{background:var(--p);color:#fff;border:0;cursor:pointer;width:auto}button.alt{background:#fff;color:var(--p);border:1px solid var(--p)}
-button.red{background:#dc2626}header button{background:#fff;color:var(--p);margin:0}
-.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
-.slots{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}.slots button{margin:0;background:#fff;color:var(--t);border:1px solid var(--b)}
-.slots button.sel{background:var(--p);color:#fff}.slots button:disabled{opacity:.4;text-decoration:line-through;cursor:not-allowed}
-table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:9px 6px;border-bottom:1px solid var(--b);text-align:left}
-.tag{padding:2px 9px;border-radius:99px;font-size:12px;background:#ccfbf1}.tag.cancelled{background:#fee2e2}.tag.completed{background:#e0e7ff}
-.rec{border-left:3px solid var(--p);padding:6px 12px;margin:10px 0;background:#f8fafc}.m{color:var(--m);font-size:13px}
-#toast{position:fixed;bottom:20px;right:20px;background:var(--t);color:#fff;padding:12px 18px;border-radius:8px;display:none}
-.hide{display:none}.live{font-size:12px;opacity:.9;margin-right:10px}
-</style></head><body>
-<header><h1>🏥 CareConnect Hospital</h1><div id="nav"></div></header>
-<main id="app"></main><div id="toast"></div>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CareConnect Enterprise</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans min-h-screen">
+
+<header class="bg-blue-900 text-white shadow-md sticky top-0 z-50">
+  <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+    <h1 class="text-2xl font-bold flex items-center gap-2">🏥 CareConnect</h1>
+    <div id="nav" class="flex items-center gap-4"></div>
+  </div>
+</header>
+
+<main id="app" class="max-w-6xl mx-auto px-4 py-8"></main>
+
+<div id="toast" class="fixed bottom-4 right-4 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-xl hidden transition-opacity z-50"></div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const $=s=>document.querySelector(s), app=$('#app');
-let token=localStorage.token||'', user=JSON.parse(localStorage.user||'null'), sel={}, openPatient=null;
-const e=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',3000)}
-async function api(url,method='GET',body){
-  const r=await fetch('/api'+url,{method,headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:body&&JSON.stringify(body)});
-  const d=await r.json();if(!r.ok){toast(d.error||'Error');throw d}return d}
-function logout(){localStorage.clear();token='';user=null;render()}
-async function auth(kind){
-  try{const d=await api('/'+kind,'POST',{name:$('#n')?.value,email:$('#em').value,password:$('#pw').value});
-  token=d.token;user=d.user;localStorage.token=token;localStorage.user=JSON.stringify(user);render()}catch{}}
-function render(){
-  $('#nav').innerHTML=user?`<span class="live">● Live</span>${e(user.name)} (${user.role}) <button onclick="logout()">Logout</button>`:'';
-  if(!user){app.innerHTML=`<div class="card" style="max-width:380px;margin:auto"><h2>Sign in or create a patient account</h2>
-  <input id="n" placeholder="Full name (new patients only)"><input id="em" type="email" placeholder="Email"><input id="pw" type="password" placeholder="Password">
-  <button onclick="auth('login')">Login</button> <button class="alt" onclick="auth('register')">Register</button>
-  <p class="m">Demo staff: admin@hospital.com / Admin@123, anita@hospital.com / Doctor@123</p></div>`;return}
-  user.role==='patient'?patientView():staffView()}
-const tbl=(rows,staffMode)=>`<table><tr><th>Date</th><th>Time</th><th>${staffMode?'Patient':'Doctor'}</th><th>Reason</th><th>Status</th><th></th></tr>`+
- rows.map(a=>`<tr><td>${a.date}</td><td>${a.time}</td><td>${e(staffMode?a.patient:a.doctor)}</td><td>${e(a.reason)}</td><td><span class="tag ${a.status}">${a.status}</span></td><td>`+
- (a.status==='booked'?(staffMode&&user.role==='doctor'?`<button onclick="setStatus('${a.id}','completed')">Complete</button> `:'')+`<button class="red" onclick="setStatus('${a.id}','cancelled')">Cancel</button>`:'')+`</td></tr>`).join('')+'</table>';
-async function setStatus(id,s){await api('/appointments/'+id,'PATCH',{status:s});refresh()}
-async function patientView(){
-  const docs=await api('/doctors');sel.doctor=sel.doctor||docs[0]?.id;sel.date=sel.date||new Date().toISOString().slice(0,10);
-  app.innerHTML=`<div class="card"><h2>Book an appointment</h2><div class="row">
-  <select id="doc" onchange="sel.doctor=this.value;sel.time=null;refresh()">${docs.map(d=>`<option value="${d.id}" ${d.id===sel.doctor?'selected':''}>${e(d.name)} - ${e(d.specialty)}</option>`).join('')}</select>
-  <input type="date" id="dt" min="${new Date().toISOString().slice(0,10)}" value="${sel.date}" onchange="sel.date=this.value;sel.time=null;refresh()"></div>
-  <div class="slots" id="slots"></div><textarea id="why" rows="2" placeholder="Reason for visit"></textarea><button onclick="book()">Confirm booking</button></div>
-  <div class="card"><h2>My appointments</h2><div id="mine"></div></div><div class="card"><h2>My medical records</h2><div id="recs"></div></div>`;refresh()}
-async function book(){if(!sel.time)return toast('Select a time slot');
-  await api('/appointments','POST',{doctorId:sel.doctor,date:sel.date,time:sel.time,reason:$('#why').value});sel.time=null;toast('Appointment booked');refresh()}
-async function staffView(){
-  app.innerHTML=`<div class="card"><h2>Appointments</h2><div id="mine"></div></div>
-  <div class="card"><h2>Patient records</h2><input id="q" placeholder="Search patient by name or email" oninput="refresh()"><div id="plist"></div><div id="pdetail"></div></div>`;refresh()}
-async function refresh(){
-  if(!user)return;
-  const mine=await api('/appointments');
-  if($('#mine'))$('#mine').innerHTML=mine.length?tbl(mine,user.role!=='patient'):'<p class="m">No appointments yet.</p>';
-  if(user.role==='patient'){
-    if($('#slots')){const s=await api(`/slots?doctorId=${sel.doctor}&date=${sel.date}`);
-      $('#slots').innerHTML=s.map(x=>`<button ${x.taken?'disabled':''} class="${x.time===sel.time?'sel':''}" onclick="sel.time='${x.time}';refresh()">${x.time}</button>`).join('')}
-    if($('#recs'))$('#recs').innerHTML=recHtml(await api('/records/'+user.id))}
-  else{
-    const p=await api('/patients?q='+encodeURIComponent($('#q')?.value||''));
-    $('#plist').innerHTML=p.map(x=>`<button class="alt" onclick="openPatient='${x.id}';refresh()">${e(x.name)}</button> `).join('')||'<p class="m">No patients found.</p>';
-    if(openPatient){const r=await api('/records/'+openPatient);const nm=p.find(x=>x.id===openPatient)?.name||'';
-      $('#pdetail').innerHTML=`<h2 style="margin-top:16px">Records: ${e(nm)}</h2>`+recHtml(r)+(user.role==='doctor'?
-      `<input id="dx" placeholder="Diagnosis"><input id="rx" placeholder="Prescription"><textarea id="nt" rows="2" placeholder="Notes"></textarea><button onclick="addRec()">Save record</button>`:'')}}}
-const recHtml=r=>r.length?r.map(x=>`<div class="rec"><b>${e(x.diagnosis)}</b><div class="m">${new Date(x.date).toLocaleString()} by ${e(x.doctor)}</div><div>Prescription: ${e(x.prescription)||'-'}</div><div>${e(x.notes)}</div></div>`).join(''):'<p class="m">No records yet.</p>';
-async function addRec(){await api('/records/'+openPatient,'POST',{diagnosis:$('#dx').value,prescription:$('#rx').value,notes:$('#nt').value});toast('Record saved');refresh()}
-io().on('update',()=>{refresh();});
-render();
-</script></body></html>
+  const $ = s => document.querySelector(s);
+  const app = $('#app');
+  let token = localStorage.token || '';
+  let user = JSON.parse(localStorage.user || 'null');
+  let sel = {}, openPatient = null;
+
+  const e = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  
+  function toast(m) {
+    const t = $('#toast');
+    t.textContent = m;
+    t.classList.remove('hidden');
+    setTimeout(() => t.classList.add('hidden'), 3000);
+  }
+
+  async function api(url, method = 'GET', body) {
+    const r = await fetch('/api' + url, {
+      method,
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: body && JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (!r.ok) { toast(d.error || 'Error'); throw d; }
+    return d;
+  }
+
+  function logout() { localStorage.clear(); token = ''; user = null; render(); }
+
+  async function auth(kind) {
+    try {
+      const d = await api('/' + kind, 'POST', { name: $('#n')?.value, email: $('#em').value, password: $('#pw').value });
+      token = d.token; user = d.user;
+      localStorage.token = token; localStorage.user = JSON.stringify(user);
+      render();
+    } catch {}
+  }
+
+  function render() {
+    $('#nav').innerHTML = user 
+      ? `<span class="flex items-center gap-2 text-sm"><span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> Live</span>
+         <span class="font-medium">${e(user.name)} <span class="opacity-75 text-sm">(${user.role})</span></span>
+         <button onclick="logout()" class="ml-4 bg-white/10 hover:bg-white/20 px-4 py-2 rounded transition">Logout</button>`
+      : '';
+
+    if (!user) {
+      app.innerHTML = `
+        <div class="max-w-md mx-auto bg-white p-8 rounded-xl shadow-sm border border-slate-200 mt-10">
+          <h2 class="text-2xl font-bold text-slate-800 mb-6 text-center">Portal Access</h2>
+          <div class="space-y-4">
+            <input id="n" placeholder="Full name (new patients)" class="w-full p-3 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+            <input id="em" type="email" placeholder="Email Address" class="w-full p-3 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+            <input id="pw" type="password" placeholder="Password" class="w-full p-3 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+            <div class="flex gap-4 pt-2">
+              <button onclick="auth('login')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded transition">Login</button>
+              <button onclick="auth('register')" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3 rounded transition border border-slate-300">Register</button>
+            </div>
+          </div>
+        </div>`;
+      return;
+    }
+    user.role === 'patient' ? patientView() : staffView();
+  }
+
+  const getStatusBadge = (status) => {
+    const colors = { booked: 'bg-amber-100 text-amber-800', completed: 'bg-emerald-100 text-emerald-800', cancelled: 'bg-red-100 text-red-800' };
+    return `<span class="px-3 py-1 rounded-full text-xs font-semibold ${colors[status]}">${status.toUpperCase()}</span>`;
+  };
+
+  const tbl = (rows, staffMode) => `
+    <div class="overflow-x-auto bg-white rounded-lg shadow-sm border border-slate-200">
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm uppercase tracking-wider">
+            <th class="p-4 font-semibold">Date & Time</th>
+            <th class="p-4 font-semibold">${staffMode ? 'Patient' : 'Doctor'}</th>
+            <th class="p-4 font-semibold">Reason</th>
+            <th class="p-4 font-semibold">Status</th>
+            <th class="p-4 font-semibold text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          ${rows.map(a => `
+            <tr class="hover:bg-slate-50 transition">
+              <td class="p-4"><div class="font-medium">${a.date.split('T')[0]}</div><div class="text-slate-500 text-sm">${a.time}</div></td>
+              <td class="p-4 font-medium text-slate-800">${e(staffMode ? a.patient : a.doctor)}</td>
+              <td class="p-4 text-slate-600 text-sm">${e(a.reason)}</td>
+              <td class="p-4">${getStatusBadge(a.status)}</td>
+              <td class="p-4 text-right space-x-2">
+                ${a.status === 'booked' ? `
+                  ${staffMode && user.role === 'doctor' ? `<button onclick="setStatus('${a.id}','completed')" class="text-emerald-600 hover:text-emerald-800 font-medium text-sm">Complete</button>` : ''}
+                  <button onclick="setStatus('${a.id}','cancelled')" class="text-red-600 hover:text-red-800 font-medium text-sm">Cancel</button>
+                ` : ''}
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  async function setStatus(id, s) { await api('/appointments/' + id, 'PATCH', { status: s }); refresh(); }
+
+  async function patientView() {
+    const docs = await api('/doctors');
+    sel.doctor = sel.doctor || docs[0]?.id; sel.date = sel.date || new Date().toISOString().slice(0, 10);
+    app.innerHTML = `
+      <div class="grid md:grid-cols-3 gap-8">
+        <div class="md:col-span-1 space-y-6">
+          <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h2 class="text-lg font-bold text-slate-800 mb-4">Book Appointment</h2>
+            <select id="doc" onchange="sel.doctor=this.value;sel.time=null;refresh()" class="w-full p-3 mb-4 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+              ${docs.map(d => `<option value="${d.id}" ${d.id === sel.doctor ? 'selected' : ''}>${e(d.name)} (${e(d.specialty)})</option>`).join('')}
+            </select>
+            <input type="date" id="dt" min="${new Date().toISOString().slice(0, 10)}" value="${sel.date}" onchange="sel.date=this.value;sel.time=null;refresh()" class="w-full p-3 mb-4 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+            <div id="slots" class="grid grid-cols-3 gap-2 mb-4"></div>
+            <textarea id="why" rows="2" placeholder="Reason for visit" class="w-full p-3 mb-4 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+            <button onclick="book()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded transition">Confirm Booking</button>
+          </div>
+        </div>
+        <div class="md:col-span-2 space-y-8">
+          <section>
+            <h2 class="text-xl font-bold text-slate-800 mb-4">My Appointments</h2>
+            <div id="mine"></div>
+          </section>
+          <section>
+            <h2 class="text-xl font-bold text-slate-800 mb-4">Medical Records</h2>
+            <div id="recs" class="space-y-4"></div>
+          </section>
+        </div>
+      </div>`;
+    refresh();
+  }
+
+  async function book() {
+    if (!sel.time) return toast('Select a time slot');
+    await api('/appointments', 'POST', { doctorId: sel.doctor, date: sel.date, time: sel.time, reason: $('#why').value });
+    sel.time = null; toast('Appointment booked'); refresh();
+  }
+
+  async function staffView() {
+    app.innerHTML = `
+      <div class="space-y-8">
+        <section>
+          <h2 class="text-xl font-bold text-slate-800 mb-4">Active Appointments</h2>
+          <div id="mine"></div>
+        </section>
+        <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+          <h2 class="text-xl font-bold text-slate-800 mb-4">Patient Directory</h2>
+          <input id="q" placeholder="Search patient name..." oninput="refresh()" class="w-full md:w-1/2 p-3 mb-6 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+          <div id="plist" class="flex flex-wrap gap-2 mb-6"></div>
+          <div id="pdetail" class="mt-6 border-t border-slate-100 pt-6"></div>
+        </section>
+      </div>`;
+    refresh();
+  }
+
+  async function refresh() {
+    if (!user) return;
+    const mine = await api('/appointments');
+    if ($('#mine')) $('#mine').innerHTML = mine.length ? tbl(mine, user.role !== 'patient') : '<p class="text-slate-500 bg-white p-4 rounded-lg border border-slate-200">No appointments scheduled.</p>';
+    
+    if (user.role === 'patient') {
+      if ($('#slots')) {
+        const s = await api(`/slots?doctorId=${sel.doctor}&date=${sel.date}`);
+        $('#slots').innerHTML = s.map(x => `
+          <button ${x.taken ? 'disabled' : ''} 
+            class="py-2 text-sm rounded border transition ${x.taken ? 'bg-slate-100 text-slate-400 cursor-not-allowed line-through' : x.time === sel.time ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 hover:border-blue-500 border-slate-300'}" 
+            onclick="sel.time='${x.time}';refresh()">
+            ${x.time}
+          </button>`).join('');
+      }
+      if ($('#recs')) $('#recs').innerHTML = recHtml(await api('/records/' + user.id));
+    } else {
+      const p = await api('/patients?q=' + encodeURIComponent($('#q')?.value || ''));
+      $('#plist').innerHTML = p.map(x => `<button class="px-4 py-2 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 border border-slate-200 rounded-full text-sm font-medium transition" onclick="openPatient='${x.id}';refresh()">${e(x.name)}</button>`).join('') || '<p class="text-slate-500">No patients found.</p>';
+      
+      if (openPatient) {
+        const r = await api('/records/' + openPatient);
+        const nm = p.find(x => x.id === openPatient)?.name || '';
+        $('#pdetail').innerHTML = `
+          <h3 class="text-lg font-bold text-slate-800 mb-4">Records for ${e(nm)}</h3>
+          <div class="space-y-4 mb-6">${recHtml(r)}</div>
+          ${user.role === 'doctor' ? `
+            <div class="bg-slate-50 p-6 rounded-lg border border-slate-200 space-y-4">
+              <h4 class="font-semibold text-slate-700">Add New Record</h4>
+              <input id="dx" placeholder="Diagnosis" class="w-full p-3 border border-slate-300 rounded outline-none focus:ring-2 focus:ring-blue-500">
+              <input id="rx" placeholder="Prescription" class="w-full p-3 border border-slate-300 rounded outline-none focus:ring-2 focus:ring-blue-500">
+              <textarea id="nt" rows="2" placeholder="Clinical Notes" class="w-full p-3 border border-slate-300 rounded outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+              <button onclick="addRec()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-6 rounded transition">Save Record</button>
+            </div>
+          ` : ''}`;
+      }
+    }
+  }
+
+  const recHtml = r => r.length ? r.map(x => `
+    <div class="bg-white p-5 rounded-lg border-l-4 border-l-blue-500 shadow-sm border-y border-r border-slate-200">
+      <div class="flex justify-between items-start mb-2">
+        <h4 class="font-bold text-slate-800 text-lg">${e(x.diagnosis)}</h4>
+        <span class="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">${new Date(x.created_at).toLocaleDateString()}</span>
+      </div>
+      <p class="text-sm text-slate-600 mb-2"><span class="font-medium text-slate-700">Rx:</span> ${e(x.prescription) || 'None'}</p>
+      <p class="text-sm text-slate-600"><span class="font-medium text-slate-700">Notes:</span> ${e(x.notes) || 'None'}</p>
+      <p class="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-100">Attending: ${e(x.doctor_name)}</p>
+    </div>
+  `).join('') : '<p class="text-slate-500 bg-slate-50 p-4 rounded-lg border border-slate-200">No medical history available.</p>';
+
+  async function addRec() { await api('/records/' + openPatient, 'POST', { diagnosis: $('#dx').value, prescription: $('#rx').value, notes: $('#nt').value }); toast('Record saved'); refresh(); }
+
+  io().on('update', () => { refresh(); });
+  render();
+</script>
+</body>
+</html>
