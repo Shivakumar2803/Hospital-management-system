@@ -1,93 +1,173 @@
-const express = require('express'), http = require('http'), crypto = require('crypto');
-const fs = require('fs'), path = require('path'), { Server } = require('socket.io');
-const app = express(), srv = http.createServer(app), io = new Server(srv);
-const FILE = path.join(__dirname, 'data.json'), SECRET = process.env.SECRET || 'change-this-secret';
+require('dotenv').config();
+const express = require('express');
+const http = require('http');
+const path = require('path');
+const { Server } = require('socket.io');
+const { Pool } = require('pg');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+// Database Pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL
+});
+
+const SECRET = process.env.JWT_SECRET || 'fallback-secret-key-change-in-production';
 const SLOTS = ['09:00','09:30','10:00','10:30','11:00','11:30','12:00','14:00','14:30','15:00','15:30','16:00'];
 
-const hash = (p, s = crypto.randomBytes(8).toString('hex')) => s + ':' + crypto.scryptSync(p, s, 32).toString('hex');
-const same = (p, h) => hash(p, h.split(':')[0]) === h;
-const mac = b => crypto.createHmac('sha256', SECRET).update(b).digest('base64url');
-const sign = u => { const b = Buffer.from(JSON.stringify({ id: u.id, role: u.role })).toString('base64url'); return b + '.' + mac(b); };
-const verify = t => { try { const [b, s] = t.split('.'); return mac(b) === s ? JSON.parse(Buffer.from(b, 'base64url')) : null; } catch { return null; } };
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-let db = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE)) : { users: [], appts: [], records: [] };
-const save = () => fs.writeFileSync(FILE, JSON.stringify(db, null, 2));
-const add = (name, email, pw, role, specialty) => db.users.push({ id: crypto.randomUUID(), name, email, pass: hash(pw), role, specialty });
-if (!db.users.length) {
-  add('Hospital Admin', 'admin@hospital.com', 'Hms@Adm!n7Kq29', 'admin');
-  add('Dr. Anita Rao', 'anita@hospital.com', 'Hms@Anita#4Wz81', 'doctor', 'General Medicine');
-  add('Dr. Rahul Mehta', 'rahul@hospital.com', 'Hms@Rahul$6Tp53', 'doctor', 'Cardiology');
-  save();
-}
-const pub = u => ({ id: u.id, name: u.name, email: u.email, role: u.role, specialty: u.specialty });
-const notify = () => io.emit('update');
+// Authentication Middleware
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Access token missing' });
 
-app.use(express.json()); app.use(express.static(path.join(__dirname, 'public')));
-app.use('/api', (req, res, next) => {
-  req.user = verify((req.headers.authorization || '').replace('Bearer ', ''));
+  jwt.verify(token, SECRET, (err, user) => {
+    if (err) return res.status(403).json({ error: 'Invalid token' });
+    req.user = user;
+    next();
+  });
+};
+
+const requireRole = (...roles) => (req, res, next) => {
+  if (!roles.includes(req.user.role)) return res.status(403).json({ error: 'Insufficient permissions' });
   next();
-});
-const need = (...roles) => (req, res, next) =>
-  req.user && roles.includes(req.user.role) ? next() : res.status(403).json({ error: 'Not allowed' });
-const staff = need('doctor', 'admin'), any = need('patient', 'doctor', 'admin');
+};
 
-app.post('/api/register', (req, res) => {
-  const { name, email, password } = req.body || {};
-  if (!name || !email || !password || password.length < 6) return res.status(400).json({ error: 'Name, email and a 6+ character password are required' });
-  if (db.users.some(u => u.email === email.toLowerCase())) return res.status(409).json({ error: 'Email already registered' });
-  add(name.trim(), email.toLowerCase(), password, 'patient'); save();
-  const u = db.users.at(-1); res.json({ token: sign(u), user: pub(u) });
+// --- AUTHENTICATION ROUTES ---
+app.post('/api/register', async (req, res) => {
+  const { name, email, password } = req.body;
+  if (!name || !email || !password || password.length < 6) {
+    return res.status(400).json({ error: 'Valid name, email, and 6+ char password required' });
+  }
+
+  try {
+    const hash = await bcrypt.hash(password, 10);
+    const result = await pool.query(
+      'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role',
+      [name.trim(), email.toLowerCase(), hash, 'patient']
+    );
+    const user = result.rows[0];
+    const token = jwt.sign({ id: user.id, role: user.role }, SECRET, { expiresIn: '24h' });
+    res.json({ token, user });
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'Email already registered' });
+    res.status(500).json({ error: 'Server error' });
+  }
 });
-app.post('/api/login', (req, res) => {
-  const { email = '', password = '' } = req.body || {};
-  const u = db.users.find(x => x.email === email.toLowerCase());
-  if (!u || !same(password, u.pass)) return res.status(401).json({ error: 'Wrong email or password' });
-  res.json({ token: sign(u), user: pub(u) });
+
+app.post('/api/login', async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase()]);
+    const user = result.rows[0];
+    
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    const token = jwt.sign({ id: user.id, role: user.role }, SECRET, { expiresIn: '24h' });
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, specialty: user.specialty } });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
 });
-app.get('/api/doctors', any, (req, res) => res.json(db.users.filter(u => u.role === 'doctor').map(pub)));
-app.get('/api/slots', any, (req, res) => {
+
+// --- API ROUTES ---
+app.get('/api/doctors', authenticateToken, async (req, res) => {
+  const result = await pool.query("SELECT id, name, specialty FROM users WHERE role = 'doctor'");
+  res.json(result.rows);
+});
+
+app.get('/api/slots', authenticateToken, async (req, res) => {
   const { doctorId, date } = req.query;
-  const taken = db.appts.filter(a => a.doctorId === doctorId && a.date === date && a.status === 'booked').map(a => a.time);
-  res.json(SLOTS.map(t => ({ time: t, taken: taken.includes(t) })));
+  const result = await pool.query(
+    "SELECT appointment_time FROM appointments WHERE doctor_id = $1 AND appointment_date = $2 AND status = 'booked'",
+    [doctorId, date]
+  );
+  const takenSlots = result.rows.map(r => r.appointment_time);
+  res.json(SLOTS.map(t => ({ time: t, taken: takenSlots.includes(t) })));
 });
-app.post('/api/appointments', need('patient'), (req, res) => {
-  const { doctorId, date, time, reason = '' } = req.body || {};
-  if (!db.users.some(u => u.id === doctorId && u.role === 'doctor') || !SLOTS.includes(time) || !(date >= new Date().toISOString().slice(0, 10)))
-    return res.status(400).json({ error: 'Invalid doctor, date or time' });
-  if (db.appts.some(a => a.doctorId === doctorId && a.date === date && a.time === time && a.status === 'booked'))
-    return res.status(409).json({ error: 'Slot was just taken. Pick another.' });
-  db.appts.push({ id: crypto.randomUUID(), patientId: req.user.id, doctorId, date, time, reason: reason.slice(0, 200), status: 'booked' });
-  save(); notify(); res.json({ ok: true });
+
+app.post('/api/appointments', authenticateToken, requireRole('patient'), async (req, res) => {
+  const { doctorId, date, time, reason } = req.body;
+  try {
+    await pool.query(
+      "INSERT INTO appointments (patient_id, doctor_id, appointment_date, appointment_time, reason, status) VALUES ($1, $2, $3, $4, $5, 'booked')",
+      [req.user.id, doctorId, date, time, reason]
+    );
+    io.emit('update');
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(409).json({ error: 'Slot already taken or invalid request' });
+  }
 });
-app.get('/api/appointments', any, (req, res) => {
-  const { id, role } = req.user, name = i => db.users.find(u => u.id === i)?.name || '';
-  const list = db.appts.filter(a => role === 'admin' || a.patientId === id || a.doctorId === id)
-    .map(a => ({ ...a, patient: name(a.patientId), doctor: name(a.doctorId) }))
-    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
-  res.json(list);
+
+app.get('/api/appointments', authenticateToken, async (req, res) => {
+  const { id, role } = req.user;
+  let query = `
+    SELECT a.id, a.appointment_date as date, a.appointment_time as time, a.reason, a.status, 
+           p.name as patient, d.name as doctor
+    FROM appointments a
+    JOIN users p ON a.patient_id = p.id
+    JOIN users d ON a.doctor_id = d.id
+  `;
+  const params = [];
+  
+  if (role === 'patient') { query += ' WHERE a.patient_id = $1'; params.push(id); }
+  else if (role === 'doctor') { query += ' WHERE a.doctor_id = $1'; params.push(id); }
+  
+  query += ' ORDER BY a.appointment_date, a.appointment_time';
+  
+  const result = await pool.query(query, params);
+  res.json(result.rows);
 });
-app.patch('/api/appointments/:id', any, (req, res) => {
-  const a = db.appts.find(x => x.id === req.params.id), { id, role } = req.user, status = req.body.status;
-  if (!a || !['cancelled', 'completed'].includes(status)) return res.status(400).json({ error: 'Invalid request' });
-  const mine = a.patientId === id || a.doctorId === id || role === 'admin';
-  if (!mine || (role === 'patient' && status !== 'cancelled')) return res.status(403).json({ error: 'Not allowed' });
-  a.status = status; save(); notify(); res.json({ ok: true });
+
+app.patch('/api/appointments/:id', authenticateToken, async (req, res) => {
+  const { status } = req.body;
+  if (!['cancelled', 'completed'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
+  
+  const appointmentId = req.params.id;
+  await pool.query('UPDATE appointments SET status = $1 WHERE id = $2', [status, appointmentId]);
+  io.emit('update');
+  res.json({ ok: true });
 });
-app.get('/api/patients', staff, (req, res) => {
-  const q = (req.query.q || '').toLowerCase();
-  res.json(db.users.filter(u => u.role === 'patient' && (u.name + u.email).toLowerCase().includes(q)).map(pub));
+
+app.get('/api/patients', authenticateToken, requireRole('admin', 'doctor'), async (req, res) => {
+  const { q } = req.query;
+  const search = `%${(q || '').toLowerCase()}%`;
+  const result = await pool.query(
+    "SELECT id, name, email FROM users WHERE role = 'patient' AND (LOWER(name) LIKE $1 OR LOWER(email) LIKE $1)",
+    [search]
+  );
+  res.json(result.rows);
 });
-app.get('/api/records/:pid', any, (req, res) => {
-  if (req.user.role === 'patient' && req.user.id !== req.params.pid) return res.status(403).json({ error: 'Not allowed' });
-  res.json(db.records.filter(r => r.patientId === req.params.pid).sort((a, b) => b.date.localeCompare(a.date)));
+
+app.get('/api/records/:pid', authenticateToken, async (req, res) => {
+  if (req.user.role === 'patient' && req.user.id !== req.params.pid) return res.status(403).json({ error: 'Forbidden' });
+  const result = await pool.query('SELECT * FROM records WHERE patient_id = $1 ORDER BY created_at DESC', [req.params.pid]);
+  res.json(result.rows);
 });
-app.post('/api/records/:pid', need('doctor'), (req, res) => {
-  const { diagnosis, prescription = '', notes = '' } = req.body || {};
-  if (!diagnosis) return res.status(400).json({ error: 'Diagnosis is required' });
-  db.records.push({ id: crypto.randomUUID(), patientId: req.params.pid, doctor: db.users.find(u => u.id === req.user.id).name,
-    date: new Date().toISOString(), diagnosis, prescription, notes });
-  save(); notify(); res.json({ ok: true });
+
+app.post('/api/records/:pid', authenticateToken, requireRole('doctor'), async (req, res) => {
+  const { diagnosis, prescription, notes } = req.body;
+  
+  const doctorResult = await pool.query('SELECT name FROM users WHERE id = $1', [req.user.id]);
+  const doctorName = doctorResult.rows[0].name;
+
+  await pool.query(
+    'INSERT INTO records (patient_id, doctor_name, diagnosis, prescription, notes) VALUES ($1, $2, $3, $4, $5)',
+    [req.params.pid, doctorName, diagnosis, prescription, notes]
+  );
+  io.emit('update');
+  res.json({ ok: true });
 });
 
 const PORT = process.env.PORT || 3000;
-srv.listen(PORT, () => console.log(`Hospital system running at http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`Enterprise HMS running on port ${PORT}`));
