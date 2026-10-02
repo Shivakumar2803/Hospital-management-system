@@ -1,23 +1,18 @@
-# CareConnect Hospital Management System
+# CareConnect Enterprise HMS
 
-A real-time web application that removes long hospital queues and replaces paper patient files.
+A scalable, real-time Hospital Management System designed to eliminate hospital queues and digitize patient records securely.
 
-## Features
-- Patients register, pick a doctor, choose a free time slot and book online. Taken slots disappear instantly for everyone (Socket.IO).
-- Doctors and admins see appointments and search patient records at any time.
-- Doctors add diagnosis, prescription and notes. Patients can view their own history.
-- Role-based access (patient, doctor, admin), hashed passwords (scrypt), signed login tokens.
+## Enterprise Upgrades
+* **Database:** Migrated from local JSON to PostgreSQL for relational data integrity.
+* **Security:** Implemented `bcrypt` for password hashing and `jsonwebtoken` (JWT) for secure API authentication.
+* **Real-time Engine:** Powered by Socket.IO to instantly synchronize appointment slot availability across all connected clients.
+* **UI/UX:** Fully responsive, modern frontend rebuilt with Tailwind CSS.
 
-## Run locally
-```
-npm install
-npm start
-```
-Open http://localhost:3000
+## Getting Started
 
-## Structure
-- `server.js` - Express API, Socket.IO, JSON file storage (`data.json`)
-- `public/index.html` - the full front end
-
-## Next steps
-Move storage to PostgreSQL, add email reminders, add doctor availability settings.
+### 1. Environment Setup
+Create a `.env` file in the root directory based on `.env.example`:
+```env
+PORT=3000
+JWT_SECRET=your_super_secret_jwt_key_here
+DATABASE_URL=postgres://user:password@localhost:5432/careconnect
