@@ -14,9 +14,9 @@ let db = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE)) : { users: [], 
 const save = () => fs.writeFileSync(FILE, JSON.stringify(db, null, 2));
 const add = (name, email, pw, role, specialty) => db.users.push({ id: crypto.randomUUID(), name, email, pass: hash(pw), role, specialty });
 if (!db.users.length) {
-  add('Hospital Admin', 'admin@hospital.com', 'Admin@123', 'admin');
-  add('Dr. Anita Rao', 'anita@hospital.com', 'Doctor@123', 'doctor', 'General Medicine');
-  add('Dr. Rahul Mehta', 'rahul@hospital.com', 'Doctor@123', 'doctor', 'Cardiology');
+  add('Hospital Admin', 'admin@hospital.com', 'Hms@Adm!n7Kq29', 'admin');
+  add('Dr. Anita Rao', 'anita@hospital.com', 'Hms@Anita#4Wz81', 'doctor', 'General Medicine');
+  add('Dr. Rahul Mehta', 'rahul@hospital.com', 'Hms@Rahul$6Tp53', 'doctor', 'Cardiology');
   save();
 }
 const pub = u => ({ id: u.id, name: u.name, email: u.email, role: u.role, specialty: u.specialty });
