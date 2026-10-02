@@ -3,21 +3,89 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CareConnect Enterprise</title>
+  <title>CareConnect Multispeciality Hospitals</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    .glass-nav { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+  </style>
 </head>
-<body class="bg-slate-50 text-slate-900 font-sans min-h-screen">
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
 
-<header class="bg-blue-900 text-white shadow-md sticky top-0 z-50">
-  <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-    <h1 class="text-2xl font-bold flex items-center gap-2 cursor-pointer" onclick="showPortal=false; render()">🏥 CareConnect</h1>
+<!-- Top Bar -->
+<div class="bg-blue-900 text-white text-xs py-2 px-4 md:px-8 hidden md:flex justify-between items-center">
+  <div class="flex gap-4">
+    <span>📞 +91-4068106587 (Emergency 24/7)</span>
+    <span>✉ info@careconnect.com</span>
+  </div>
+  <div class="flex gap-4">
+    <a href="#" class="hover:text-blue-200">International Patients</a>
+    <a href="#" class="hover:text-blue-200">Pay Online</a>
+    <a href="#" class="hover:text-blue-200">Online Lab Reports</a>
+    <select class="bg-blue-800 border-none text-white text-xs outline-none rounded px-2">
+      <option>English</option>
+      <option>Hindi</option>
+      <option>Telugu</option>
+    </select>
+  </div>
+</div>
+
+<!-- Main Navigation -->
+<header class="glass-nav shadow-sm sticky top-0 z-50 transition-all border-b border-slate-200">
+  <div class="max-w-7xl mx-auto px-4 md:px-8 py-4 flex justify-between items-center">
+    <h1 class="text-3xl font-extrabold text-blue-900 flex items-center gap-2 cursor-pointer" onclick="showPortal=false; render()">
+      <span class="text-blue-600">🏥 Care</span>Connect
+    </h1>
+    
+    <nav class="hidden lg:flex gap-6 font-semibold text-slate-600">
+      <a href="#" onclick="showPortal=false; render()" class="hover:text-blue-600 transition">Find a Doctor</a>
+      <a href="#specialities" onclick="showPortal=false; render()" class="hover:text-blue-600 transition">Specialities & Treatments</a>
+      <a href="#locations" onclick="showPortal=false; render()" class="hover:text-blue-600 transition">Hospitals & Directions</a>
+    </nav>
+
     <div id="nav" class="flex items-center gap-4"></div>
   </div>
 </header>
 
-<main id="app" class="max-w-6xl mx-auto px-4 py-8"></main>
+<!-- Main Dynamic Content -->
+<main id="app" class="flex-grow w-full"></main>
 
-<div id="toast" class="fixed bottom-4 right-4 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-xl hidden transition-opacity z-50"></div>
+<!-- Footer -->
+<footer class="bg-slate-900 text-slate-400 py-12 mt-auto">
+  <div class="max-w-7xl mx-auto px-4 md:px-8 grid md:grid-cols-4 gap-8">
+    <div>
+      <h3 class="text-white text-xl font-bold mb-4">CareConnect</h3>
+      <p class="text-sm">Delivering international quality healthcare across India with state-of-the-art infrastructure and highest standards of care.</p>
+    </div>
+    <div>
+      <h4 class="text-white font-bold mb-4">Quick Links</h4>
+      <ul class="space-y-2 text-sm">
+        <li><a href="#" class="hover:text-white">Find a Doctor</a></li>
+        <li><a href="#" class="hover:text-white">Book an Appointment</a></li>
+        <li><a href="#" class="hover:text-white">Video Consultation</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4 class="text-white font-bold mb-4">Centres of Excellence</h4>
+      <ul class="space-y-2 text-sm">
+        <li><a href="#" class="hover:text-white">Cardiac Sciences</a></li>
+        <li><a href="#" class="hover:text-white">Neurosciences</a></li>
+        <li><a href="#" class="hover:text-white">Oncology</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4 class="text-white font-bold mb-4">Contact Us</h4>
+      <p class="text-sm mb-2">Banjara Hills, Hyderabad, Telangana</p>
+      <p class="text-sm text-blue-400 font-bold">1800-102-CARE</p>
+    </div>
+  </div>
+</footer>
+
+<div id="toast" class="fixed bottom-4 right-4 bg-slate-900 text-white px-6 py-4 rounded-lg shadow-2xl hidden transition-opacity z-50 border-l-4 border-emerald-500 font-medium"></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
@@ -26,7 +94,7 @@
   let token = localStorage.token || '';
   let user = JSON.parse(localStorage.user || 'null');
   let sel = {}, openPatient = null;
-  let showPortal = false; // Controls whether to show the login screen or public website
+  let showPortal = false;
 
   const e = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   
@@ -60,96 +128,210 @@
   }
 
   function render() {
-    // Navigation Bar Logic
     $('#nav').innerHTML = user 
-      ? `<span class="flex items-center gap-2 text-sm"><span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> Live</span>
-         <span class="font-medium">${e(user.name)} <span class="opacity-75 text-sm">(${user.role})</span></span>
-         <button onclick="logout()" class="ml-4 bg-white/10 hover:bg-white/20 px-4 py-2 rounded transition">Logout</button>`
-      : `<button onclick="showPortal=true; render()" class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded transition font-medium">Patient Login</button>`;
+      ? `<span class="hidden md:flex items-center gap-2 text-sm"><span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span></span>
+         <span class="font-bold text-blue-900">${e(user.name)} <span class="opacity-75 text-sm font-normal">(${user.role})</span></span>
+         <button onclick="logout()" class="ml-2 border border-slate-300 hover:bg-slate-100 text-slate-700 px-4 py-2 rounded-full transition text-sm font-bold">Logout</button>`
+      : `<button onclick="showPortal=true; render()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-full transition font-bold shadow-md">Login / Register</button>`;
 
     if (!user) {
       if (!showPortal) {
-        // --- PUBLIC LANDING PAGE ---
+        // --- EXTRAORDINARY PUBLIC LANDING PAGE ---
         app.innerHTML = `
-          <div class="text-center py-20 bg-blue-100 rounded-2xl mb-12 shadow-sm border border-blue-200">
-            <h1 class="text-4xl md:text-5xl font-bold text-slate-800 mb-6">World-Class Healthcare, Closer to You</h1>
-            <p class="text-lg text-slate-600 mb-10 max-w-2xl mx-auto">Experience seamless scheduling, digital health records, and top-tier medical experts all in one secure platform.</p>
-            <button onclick="showPortal=true; render()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-10 rounded-full shadow-lg transition transform hover:scale-105 text-lg">
-              Book an Appointment
-            </button>
+          <!-- Hero Section -->
+          <div class="relative w-full h-[600px] flex items-center justify-center bg-slate-900">
+            <div class="absolute inset-0">
+              <img src="https://images.unsplash.com/photo-1538108149393-fbbd81895907?auto=format&fit=crop&w=2000&q=80" alt="Hospital Surgery" class="w-full h-full object-cover opacity-40">
+              <div class="absolute inset-0 bg-gradient-to-r from-blue-900/90 to-transparent"></div>
+            </div>
+            <div class="relative z-10 max-w-7xl mx-auto px-4 md:px-8 w-full">
+              <span class="text-blue-300 font-bold tracking-wider uppercase text-sm mb-4 block">Best Multispeciality Hospital in Hyderabad</span>
+              <h1 class="text-5xl md:text-7xl font-extrabold text-white mb-6 leading-tight max-w-3xl">Advanced Care.<br>Compassionate Healing.</h1>
+              <p class="text-xl text-slate-200 mb-10 max-w-2xl">Consult with super-specialist doctors. Book physical appointments or video consultations instantly.</p>
+              
+              <!-- Quick Action Search Bar -->
+              <div class="bg-white p-4 rounded-xl shadow-2xl flex flex-col md:flex-row gap-4 max-w-4xl">
+                <input type="text" placeholder="Search Doctor, Speciality or Treatment..." class="flex-grow p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                <select class="p-3 border border-slate-200 rounded-lg outline-none bg-white min-w-[200px]">
+                  <option>Select Location</option>
+                  <option>Banjara Hills</option>
+                  <option>HITEC City</option>
+                </select>
+                <button onclick="showPortal=true; render()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition whitespace-nowrap">Book Appointment</button>
+              </div>
+            </div>
           </div>
-          
-          <h2 class="text-2xl font-bold text-center text-slate-800 mb-8">Our Centres of Excellence</h2>
-          <div class="grid md:grid-cols-3 gap-8 mb-12">
-             <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center hover:shadow-md transition cursor-pointer">
-               <div class="text-4xl mb-4">🫀</div>
-               <h3 class="font-bold text-lg mb-2">Cardiac Sciences</h3>
-               <p class="text-slate-500 text-sm">Advanced heart care, diagnostics, and treatments by expert cardiologists.</p>
-             </div>
-             <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center hover:shadow-md transition cursor-pointer">
-               <div class="text-4xl mb-4">🧠</div>
-               <h3 class="font-bold text-lg mb-2">Neurosciences</h3>
-               <p class="text-slate-500 text-sm">Comprehensive care for brain, spine, and nervous system disorders.</p>
-             </div>
-             <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center hover:shadow-md transition cursor-pointer">
-               <div class="text-4xl mb-4">🩺</div>
-               <h3 class="font-bold text-lg mb-2">General Medicine</h3>
-               <p class="text-slate-500 text-sm">Primary care, routine checkups, and advanced preventive medicine.</p>
-             </div>
+
+          <!-- Feature Action Cards -->
+          <div class="max-w-7xl mx-auto px-4 md:px-8 -mt-10 relative z-20 grid grid-cols-2 md:grid-cols-4 gap-4 mb-20">
+            <div onclick="showPortal=true; render()" class="bg-white p-6 rounded-xl shadow-lg border border-slate-100 hover:-translate-y-1 transition cursor-pointer text-center group">
+              <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-blue-600 group-hover:text-white transition text-2xl">👨‍⚕️</div>
+              <h3 class="font-bold text-slate-800">Find a Doctor</h3>
+            </div>
+            <div onclick="showPortal=true; render()" class="bg-white p-6 rounded-xl shadow-lg border border-slate-100 hover:-translate-y-1 transition cursor-pointer text-center group">
+              <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-blue-600 group-hover:text-white transition text-2xl">📅</div>
+              <h3 class="font-bold text-slate-800">Book Appointment</h3>
+            </div>
+            <div onclick="showPortal=true; render()" class="bg-white p-6 rounded-xl shadow-lg border border-slate-100 hover:-translate-y-1 transition cursor-pointer text-center group">
+              <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-blue-600 group-hover:text-white transition text-2xl">💻</div>
+              <h3 class="font-bold text-slate-800">Video Consult</h3>
+            </div>
+            <div onclick="showPortal=true; render()" class="bg-white p-6 rounded-xl shadow-lg border border-slate-100 hover:-translate-y-1 transition cursor-pointer text-center group">
+              <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-blue-600 group-hover:text-white transition text-2xl">🔬</div>
+              <h3 class="font-bold text-slate-800">Lab Reports</h3>
+            </div>
+          </div>
+
+          <!-- Centres of Excellence -->
+          <div id="specialities" class="bg-slate-100 py-20">
+            <div class="max-w-7xl mx-auto px-4 md:px-8">
+              <div class="flex justify-between items-end mb-12">
+                <div>
+                  <h2 class="text-3xl md:text-4xl font-extrabold text-blue-900 mb-2">Centres of Excellence</h2>
+                  <p class="text-slate-600">World-class treatments across 30+ medical specialities.</p>
+                </div>
+                <button class="hidden md:block text-blue-600 font-bold hover:underline">View All Specialities &rarr;</button>
+              </div>
+
+              <div class="grid md:grid-cols-4 gap-6">
+                <!-- Card 1 -->
+                <div class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition group cursor-pointer border border-slate-200">
+                  <div class="h-48 overflow-hidden">
+                    <img src="https://images.unsplash.com/photo-1579684385127-1ef15d508118?auto=format&fit=crop&w=600&q=80" alt="Cardiac" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                  </div>
+                  <div class="p-6">
+                    <h3 class="text-xl font-bold text-slate-800 mb-2 group-hover:text-blue-600 transition">Cardiac Sciences</h3>
+                    <p class="text-slate-500 text-sm mb-4 line-clamp-2">Comprehensive care for complex heart conditions including bypass and valve replacement.</p>
+                    <span class="text-blue-600 font-semibold text-sm">Know More &rarr;</span>
+                  </div>
+                </div>
+                <!-- Card 2 -->
+                <div class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition group cursor-pointer border border-slate-200">
+                  <div class="h-48 overflow-hidden">
+                    <img src="https://images.unsplash.com/photo-1559757175-5700dde675bc?auto=format&fit=crop&w=600&q=80" alt="Neuro" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                  </div>
+                  <div class="p-6">
+                    <h3 class="text-xl font-bold text-slate-800 mb-2 group-hover:text-blue-600 transition">Neurosciences</h3>
+                    <p class="text-slate-500 text-sm mb-4 line-clamp-2">Advanced neurological treatments for stroke, epilepsy, and spinal disorders.</p>
+                    <span class="text-blue-600 font-semibold text-sm">Know More &rarr;</span>
+                  </div>
+                </div>
+                <!-- Card 3 -->
+                <div class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition group cursor-pointer border border-slate-200">
+                  <div class="h-48 overflow-hidden">
+                    <img src="https://images.unsplash.com/photo-1581594693702-fbdc51b2763b?auto=format&fit=crop&w=600&q=80" alt="Ortho" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                  </div>
+                  <div class="p-6">
+                    <h3 class="text-xl font-bold text-slate-800 mb-2 group-hover:text-blue-600 transition">Orthopaedics</h3>
+                    <p class="text-slate-500 text-sm mb-4 line-clamp-2">Robotic joint replacements and sports medicine rehabilitation.</p>
+                    <span class="text-blue-600 font-semibold text-sm">Know More &rarr;</span>
+                  </div>
+                </div>
+                <!-- Card 4 -->
+                <div class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition group cursor-pointer border border-slate-200">
+                  <div class="h-48 overflow-hidden">
+                    <img src="https://images.unsplash.com/photo-1512678080530-7760d81faba6?auto=format&fit=crop&w=600&q=80" alt="Oncology" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                  </div>
+                  <div class="p-6">
+                    <h3 class="text-xl font-bold text-slate-800 mb-2 group-hover:text-blue-600 transition">Oncology</h3>
+                    <p class="text-slate-500 text-sm mb-4 line-clamp-2">State-of-the-art radiation, medical, and surgical oncology treatments.</p>
+                    <span class="text-blue-600 font-semibold text-sm">Know More &rarr;</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Trust & Stats -->
+          <div class="py-20 bg-blue-900 text-white">
+            <div class="max-w-7xl mx-auto px-4 md:px-8 grid md:grid-cols-4 gap-8 text-center divide-y md:divide-y-0 md:divide-x divide-blue-700">
+              <div class="p-4">
+                <div class="text-4xl font-extrabold text-blue-300 mb-2">16+</div>
+                <div class="text-sm font-semibold uppercase tracking-wider">Hospitals</div>
+              </div>
+              <div class="p-4">
+                <div class="text-4xl font-extrabold text-blue-300 mb-2">1400+</div>
+                <div class="text-sm font-semibold uppercase tracking-wider">Leading Doctors</div>
+              </div>
+              <div class="p-4">
+                <div class="text-4xl font-extrabold text-blue-300 mb-2">30+</div>
+                <div class="text-sm font-semibold uppercase tracking-wider">Specialities</div>
+              </div>
+              <div class="p-4">
+                <div class="text-4xl font-extrabold text-blue-300 mb-2">JCI</div>
+                <div class="text-sm font-semibold uppercase tracking-wider">Accreditations</div>
+              </div>
+            </div>
           </div>
         `;
       } else {
         // --- LOGIN & REGISTRATION PORTAL ---
         app.innerHTML = `
-          <div class="max-w-md mx-auto bg-white p-8 rounded-xl shadow-sm border border-slate-200 mt-10 relative">
-            <button onclick="showPortal=false; render()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-sm font-medium">✕ Cancel</button>
-            <h2 class="text-2xl font-bold text-slate-800 mb-6 text-center">Portal Access</h2>
-            <div class="space-y-4">
-              <input id="n" placeholder="Full name (new patients)" class="w-full p-3 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none">
-              <input id="em" type="email" placeholder="Email Address" class="w-full p-3 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none">
-              <input id="pw" type="password" placeholder="Password" class="w-full p-3 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none">
-              <div class="flex gap-4 pt-2">
-                <button onclick="auth('login')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded transition">Login</button>
-                <button onclick="auth('register')" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3 rounded transition border border-slate-300">Register</button>
+          <div class="flex items-center justify-center min-h-[70vh] px-4">
+            <div class="w-full max-w-md bg-white p-10 rounded-2xl shadow-2xl border border-slate-100 relative overflow-hidden">
+              <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-600 to-teal-400"></div>
+              <button onclick="showPortal=false; render()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-800 text-sm font-bold flex items-center gap-1">✕ Close</button>
+              
+              <h2 class="text-3xl font-extrabold text-slate-800 mb-2 mt-4">Patient Portal</h2>
+              <p class="text-slate-500 mb-8">Access your records and appointments.</p>
+              
+              <div class="space-y-5">
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-1">Full Name <span class="text-slate-400 font-normal">(New registration only)</span></label>
+                  <input id="n" placeholder="John Doe" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition outline-none">
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-1">Email Address</label>
+                  <input id="em" type="email" placeholder="john@example.com" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition outline-none">
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-slate-700 mb-1">Password</label>
+                  <input id="pw" type="password" placeholder="••••••••" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition outline-none">
+                </div>
+                <div class="flex gap-4 pt-4">
+                  <button onclick="auth('login')" class="flex-1 bg-blue-900 hover:bg-blue-800 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5">Secure Login</button>
+                  <button onclick="auth('register')" class="flex-1 bg-white hover:bg-slate-50 text-blue-900 font-bold py-4 rounded-xl border-2 border-blue-100 transition">Register</button>
+                </div>
               </div>
             </div>
           </div>`;
       }
       return;
     }
-    // Render Dashboards if logged in
+    // --- AUTHENTICATED DASHBOARDS ---
+    app.innerHTML = `<div class="max-w-7xl mx-auto w-full px-4 md:px-8 py-8" id="dashboard-content"></div>`;
     user.role === 'patient' ? patientView() : staffView();
   }
 
   const getStatusBadge = (status) => {
     const colors = { booked: 'bg-amber-100 text-amber-800', completed: 'bg-emerald-100 text-emerald-800', cancelled: 'bg-red-100 text-red-800' };
-    return `<span class="px-3 py-1 rounded-full text-xs font-semibold ${colors[status]}">${status.toUpperCase()}</span>`;
+    return `<span class="px-3 py-1 rounded-full text-xs font-bold ${colors[status]}">${status.toUpperCase()}</span>`;
   };
 
   const tbl = (rows, staffMode) => `
-    <div class="overflow-x-auto bg-white rounded-lg shadow-sm border border-slate-200">
+    <div class="overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200">
       <table class="w-full text-left border-collapse">
         <thead>
-          <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm uppercase tracking-wider">
-            <th class="p-4 font-semibold">Date & Time</th>
-            <th class="p-4 font-semibold">${staffMode ? 'Patient' : 'Doctor'}</th>
-            <th class="p-4 font-semibold">Reason</th>
-            <th class="p-4 font-semibold">Status</th>
-            <th class="p-4 font-semibold text-right">Actions</th>
+          <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-widest">
+            <th class="p-5 font-bold">Date & Time</th>
+            <th class="p-5 font-bold">${staffMode ? 'Patient' : 'Doctor'}</th>
+            <th class="p-5 font-bold">Reason</th>
+            <th class="p-5 font-bold">Status</th>
+            <th class="p-5 font-bold text-right">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
           ${rows.map(a => `
             <tr class="hover:bg-slate-50 transition">
-              <td class="p-4"><div class="font-medium">${a.date.split('T')[0]}</div><div class="text-slate-500 text-sm">${a.time}</div></td>
-              <td class="p-4 font-medium text-slate-800">${e(staffMode ? a.patient : a.doctor)}</td>
-              <td class="p-4 text-slate-600 text-sm">${e(a.reason)}</td>
-              <td class="p-4">${getStatusBadge(a.status)}</td>
-              <td class="p-4 text-right space-x-2">
+              <td class="p-5"><div class="font-bold text-slate-800">${a.date.split('T')[0]}</div><div class="text-blue-600 font-semibold text-sm">${a.time}</div></td>
+              <td class="p-5 font-bold text-slate-800">${e(staffMode ? a.patient : a.doctor)}</td>
+              <td class="p-5 text-slate-600 text-sm font-medium">${e(a.reason)}</td>
+              <td class="p-5">${getStatusBadge(a.status)}</td>
+              <td class="p-5 text-right space-x-3">
                 ${a.status === 'booked' ? `
-                  ${staffMode && user.role === 'doctor' ? `<button onclick="setStatus('${a.id}','completed')" class="text-emerald-600 hover:text-emerald-800 font-medium text-sm">Complete</button>` : ''}
-                  <button onclick="setStatus('${a.id}','cancelled')" class="text-red-600 hover:text-red-800 font-medium text-sm">Cancel</button>
-                ` : ''}
+                  ${staffMode && user.role === 'doctor' ? `<button onclick="setStatus('${a.id}','completed')" class="text-emerald-600 hover:text-emerald-800 font-bold text-sm bg-emerald-50 px-3 py-1 rounded-lg">Complete</button>` : ''}
+                  <button onclick="setStatus('${a.id}','cancelled')" class="text-red-600 hover:text-red-800 font-bold text-sm bg-red-50 px-3 py-1 rounded-lg">Cancel</button>
+                ` : '<span class="text-slate-400 text-sm font-medium">Locked</span>'}
               </td>
             </tr>
           `).join('')}
@@ -162,27 +344,37 @@
   async function patientView() {
     const docs = await api('/doctors');
     sel.doctor = sel.doctor || docs[0]?.id; sel.date = sel.date || new Date().toISOString().slice(0, 10);
-    app.innerHTML = `
-      <div class="grid md:grid-cols-3 gap-8">
-        <div class="md:col-span-1 space-y-6">
-          <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h2 class="text-lg font-bold text-slate-800 mb-4">Book Appointment</h2>
-            <select id="doc" onchange="sel.doctor=this.value;sel.time=null;refresh()" class="w-full p-3 mb-4 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+    $('#dashboard-content').innerHTML = `
+      <h2 class="text-3xl font-extrabold text-slate-800 mb-8">Patient Dashboard</h2>
+      <div class="grid lg:grid-cols-3 gap-8">
+        <div class="lg:col-span-1 space-y-6">
+          <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+            <h3 class="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">📅 Schedule Appointment</h3>
+            <label class="block text-sm font-bold text-slate-700 mb-2">Select Specialist</label>
+            <select id="doc" onchange="sel.doctor=this.value;sel.time=null;refresh()" class="w-full p-3 mb-6 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium">
               ${docs.map(d => `<option value="${d.id}" ${d.id === sel.doctor ? 'selected' : ''}>${e(d.name)} (${e(d.specialty)})</option>`).join('')}
             </select>
-            <input type="date" id="dt" min="${new Date().toISOString().slice(0, 10)}" value="${sel.date}" onchange="sel.date=this.value;sel.time=null;refresh()" class="w-full p-3 mb-4 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none">
-            <div id="slots" class="grid grid-cols-3 gap-2 mb-4"></div>
-            <textarea id="why" rows="2" placeholder="Reason for visit" class="w-full p-3 mb-4 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
-            <button onclick="book()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded transition">Confirm Booking</button>
+            
+            <label class="block text-sm font-bold text-slate-700 mb-2">Select Date</label>
+            <input type="date" id="dt" min="${new Date().toISOString().slice(0, 10)}" value="${sel.date}" onchange="sel.date=this.value;sel.time=null;refresh()" class="w-full p-3 mb-6 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium">
+            
+            <label class="block text-sm font-bold text-slate-700 mb-2">Available Slots</label>
+            <div id="slots" class="grid grid-cols-3 gap-3 mb-6"></div>
+            
+            <label class="block text-sm font-bold text-slate-700 mb-2">Reason for Visit</label>
+            <textarea id="why" rows="2" class="w-full p-3 mb-6 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium"></textarea>
+            
+            <button onclick="book()" class="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-4 rounded-xl shadow-lg transition">Confirm Booking</button>
           </div>
         </div>
-        <div class="md:col-span-2 space-y-8">
+        
+        <div class="lg:col-span-2 space-y-8">
           <section>
-            <h2 class="text-xl font-bold text-slate-800 mb-4">My Appointments</h2>
+            <h3 class="text-xl font-bold text-slate-800 mb-4">My Appointments</h3>
             <div id="mine"></div>
           </section>
           <section>
-            <h2 class="text-xl font-bold text-slate-800 mb-4">Medical Records</h2>
+            <h3 class="text-xl font-bold text-slate-800 mb-4">Electronic Health Records</h3>
             <div id="recs" class="space-y-4"></div>
           </section>
         </div>
@@ -191,23 +383,28 @@
   }
 
   async function book() {
-    if (!sel.time) return toast('Select a time slot');
+    if (!sel.time) return toast('Please select an available time slot.');
     await api('/appointments', 'POST', { doctorId: sel.doctor, date: sel.date, time: sel.time, reason: $('#why').value });
-    sel.time = null; toast('Appointment booked'); refresh();
+    sel.time = null; toast('Appointment successfully booked!'); refresh();
   }
 
   async function staffView() {
-    app.innerHTML = `
-      <div class="space-y-8">
+    $('#dashboard-content').innerHTML = `
+      <h2 class="text-3xl font-extrabold text-slate-800 mb-8">${user.role === 'admin' ? 'Administrator' : 'Physician'} Dashboard</h2>
+      <div class="space-y-10">
         <section>
-          <h2 class="text-xl font-bold text-slate-800 mb-4">Active Appointments</h2>
+          <h3 class="text-xl font-bold text-slate-800 mb-4">Schedule Overview</h3>
           <div id="mine"></div>
         </section>
-        <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <h2 class="text-xl font-bold text-slate-800 mb-4">Patient Directory</h2>
-          <input id="q" placeholder="Search patient name..." oninput="refresh()" class="w-full md:w-1/2 p-3 mb-6 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none">
-          <div id="plist" class="flex flex-wrap gap-2 mb-6"></div>
-          <div id="pdetail" class="mt-6 border-t border-slate-100 pt-6"></div>
+        
+        <section class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+          <h3 class="text-xl font-bold text-slate-800 mb-6">Patient Database</h3>
+          <div class="relative max-w-xl mb-8">
+             <input id="q" placeholder="Search by patient name..." oninput="refresh()" class="w-full p-4 pl-12 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium">
+             <span class="absolute left-4 top-4 text-slate-400 text-lg">🔍</span>
+          </div>
+          <div id="plist" class="flex flex-wrap gap-3 mb-8"></div>
+          <div id="pdetail" class="border-t border-slate-100 pt-8"></div>
         </section>
       </div>`;
     refresh();
@@ -216,14 +413,14 @@
   async function refresh() {
     if (!user) return;
     const mine = await api('/appointments');
-    if ($('#mine')) $('#mine').innerHTML = mine.length ? tbl(mine, user.role !== 'patient') : '<p class="text-slate-500 bg-white p-4 rounded-lg border border-slate-200">No appointments scheduled.</p>';
+    if ($('#mine')) $('#mine').innerHTML = mine.length ? tbl(mine, user.role !== 'patient') : '<div class="bg-slate-50 border border-dashed border-slate-300 rounded-2xl p-10 text-center text-slate-500 font-semibold">No appointments found.</div>';
     
     if (user.role === 'patient') {
       if ($('#slots')) {
         const s = await api(`/slots?doctorId=${sel.doctor}&date=${sel.date}`);
         $('#slots').innerHTML = s.map(x => `
           <button ${x.taken ? 'disabled' : ''} 
-            class="py-2 text-sm rounded border transition ${x.taken ? 'bg-slate-100 text-slate-400 cursor-not-allowed line-through' : x.time === sel.time ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 hover:border-blue-500 border-slate-300'}" 
+            class="py-2 text-sm font-bold rounded-lg border-2 transition ${x.taken ? 'bg-slate-100 text-slate-300 border-slate-100 cursor-not-allowed' : x.time === sel.time ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-600 hover:border-blue-400 border-slate-200'}" 
             onclick="sel.time='${x.time}';refresh()">
             ${x.time}
           </button>`).join('');
@@ -231,21 +428,30 @@
       if ($('#recs')) $('#recs').innerHTML = recHtml(await api('/records/' + user.id));
     } else {
       const p = await api('/patients?q=' + encodeURIComponent($('#q')?.value || ''));
-      $('#plist').innerHTML = p.map(x => `<button class="px-4 py-2 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 border border-slate-200 rounded-full text-sm font-medium transition" onclick="openPatient='${x.id}';refresh()">${e(x.name)}</button>`).join('') || '<p class="text-slate-500">No patients found.</p>';
+      $('#plist').innerHTML = p.map(x => `<button class="px-5 py-2.5 bg-white hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 border-2 border-slate-100 rounded-full text-sm font-bold shadow-sm transition" onclick="openPatient='${x.id}';refresh()">${e(x.name)}</button>`).join('') || '<p class="text-slate-400 font-medium italic">No patients match your search.</p>';
       
       if (openPatient) {
         const r = await api('/records/' + openPatient);
         const nm = p.find(x => x.id === openPatient)?.name || '';
         $('#pdetail').innerHTML = `
-          <h3 class="text-lg font-bold text-slate-800 mb-4">Records for ${e(nm)}</h3>
-          <div class="space-y-4 mb-6">${recHtml(r)}</div>
+          <h3 class="text-2xl font-extrabold text-slate-800 mb-6">Medical Profile: <span class="text-blue-600">${e(nm)}</span></h3>
+          <div class="space-y-4 mb-8">${recHtml(r)}</div>
           ${user.role === 'doctor' ? `
-            <div class="bg-slate-50 p-6 rounded-lg border border-slate-200 space-y-4">
-              <h4 class="font-semibold text-slate-700">Add New Record</h4>
-              <input id="dx" placeholder="Diagnosis" class="w-full p-3 border border-slate-300 rounded outline-none focus:ring-2 focus:ring-blue-500">
-              <input id="rx" placeholder="Prescription" class="w-full p-3 border border-slate-300 rounded outline-none focus:ring-2 focus:ring-blue-500">
-              <textarea id="nt" rows="2" placeholder="Clinical Notes" class="w-full p-3 border border-slate-300 rounded outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-              <button onclick="addRec()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-6 rounded transition">Save Record</button>
+            <div class="bg-blue-50/50 p-8 rounded-2xl border border-blue-100 space-y-5">
+              <h4 class="font-extrabold text-blue-900 text-lg">📝 Append Clinical Notes</h4>
+              <div>
+                <label class="block text-xs font-bold text-blue-800 uppercase tracking-wider mb-2">Diagnosis</label>
+                <input id="dx" placeholder="Primary diagnosis" class="w-full p-4 bg-white border border-blue-100 rounded-xl outline-none focus:ring-2 focus:ring-blue-400 font-medium shadow-sm">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-blue-800 uppercase tracking-wider mb-2">Prescription</label>
+                <input id="rx" placeholder="Medication and dosage" class="w-full p-4 bg-white border border-blue-100 rounded-xl outline-none focus:ring-2 focus:ring-blue-400 font-medium shadow-sm">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-blue-800 uppercase tracking-wider mb-2">Clinical Observations</label>
+                <textarea id="nt" rows="3" class="w-full p-4 bg-white border border-blue-100 rounded-xl outline-none focus:ring-2 focus:ring-blue-400 font-medium shadow-sm"></textarea>
+              </div>
+              <button onclick="addRec()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-xl shadow-lg transition">Save Clinical Record</button>
             </div>
           ` : ''}`;
       }
@@ -253,18 +459,28 @@
   }
 
   const recHtml = r => r.length ? r.map(x => `
-    <div class="bg-white p-5 rounded-lg border-l-4 border-l-blue-500 shadow-sm border-y border-r border-slate-200">
-      <div class="flex justify-between items-start mb-2">
-        <h4 class="font-bold text-slate-800 text-lg">${e(x.diagnosis)}</h4>
-        <span class="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">${new Date(x.created_at).toLocaleDateString()}</span>
+    <div class="bg-white p-6 rounded-2xl border-l-4 border-l-blue-500 shadow-sm border-y border-r border-slate-100 relative">
+      <div class="flex justify-between items-start mb-4">
+        <h4 class="font-extrabold text-slate-800 text-xl">${e(x.diagnosis)}</h4>
+        <span class="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full">${new Date(x.created_at).toLocaleDateString()}</span>
       </div>
-      <p class="text-sm text-slate-600 mb-2"><span class="font-medium text-slate-700">Rx:</span> ${e(x.prescription) || 'None'}</p>
-      <p class="text-sm text-slate-600"><span class="font-medium text-slate-700">Notes:</span> ${e(x.notes) || 'None'}</p>
-      <p class="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-100">Attending: ${e(x.doctor_name)}</p>
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="bg-slate-50 p-3 rounded-lg">
+           <span class="block text-xs font-bold text-slate-400 uppercase mb-1">Prescription</span>
+           <span class="text-sm font-medium text-slate-700">${e(x.prescription) || 'None prescribed'}</span>
+        </div>
+        <div class="bg-slate-50 p-3 rounded-lg">
+           <span class="block text-xs font-bold text-slate-400 uppercase mb-1">Notes</span>
+           <span class="text-sm font-medium text-slate-700">${e(x.notes) || 'No additional notes'}</span>
+        </div>
+      </div>
+      <div class="text-xs font-bold text-slate-400 border-t border-slate-100 pt-4 flex items-center gap-2">
+        <span>👨‍⚕️ Attending Physician:</span> <span class="text-slate-700">${e(x.doctor_name)}</span>
+      </div>
     </div>
-  `).join('') : '<p class="text-slate-500 bg-slate-50 p-4 rounded-lg border border-slate-200">No medical history available.</p>';
+  `).join('') : '<div class="bg-slate-50 border border-dashed border-slate-300 rounded-2xl p-10 text-center text-slate-500 font-semibold">No medical history available on record.</div>';
 
-  async function addRec() { await api('/records/' + openPatient, 'POST', { diagnosis: $('#dx').value, prescription: $('#rx').value, notes: $('#nt').value }); toast('Record saved'); refresh(); }
+  async function addRec() { await api('/records/' + openPatient, 'POST', { diagnosis: $('#dx').value, prescription: $('#rx').value, notes: $('#nt').value }); toast('Clinical record saved to database.'); refresh(); }
 
   io().on('update', () => { refresh(); });
   render();
